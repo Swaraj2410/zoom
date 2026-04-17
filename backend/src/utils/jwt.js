@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,21 +11,64 @@ let privateKey = null;
 let publicKey = null;
 
 /**
- * Load RSA keys from files
+ * Generate RSA keys if they don't exist
+ */
+const generateKeys = () => {
+    try {
+        // Create keys directory if it doesn't exist
+        if (!fs.existsSync(keysDir)) {
+            fs.mkdirSync(keysDir, { recursive: true });
+        }
+
+        const privateKeyPath = path.join(keysDir, "private.key");
+        const publicKeyPath = path.join(keysDir, "public.key");
+
+        // Generate RSA key pair
+        const { privateKey: privKey, publicKey: pubKey } = crypto.generateKeyPairSync("rsa", {
+            modulusLength: 2048,
+            privateKeyEncoding: {
+                type: "pkcs8",
+                format: "pem"
+            },
+            publicKeyEncoding: {
+                type: "spki",
+                format: "pem"
+            }
+        });
+
+        // Write keys to files
+        fs.writeFileSync(privateKeyPath, privKey, { mode: 0o600 });
+        fs.writeFileSync(publicKeyPath, pubKey, { mode: 0o644 });
+
+        console.log("✅ RSA keys generated successfully");
+        return { privateKey: privKey, publicKey: pubKey };
+    } catch (error) {
+        console.error("Error generating RSA keys:", error.message);
+        throw error;
+    }
+};
+
+/**
+ * Load RSA keys from files or generate them if they don't exist
  */
 const loadKeys = () => {
     try {
         const privateKeyPath = path.join(keysDir, "private.key");
         const publicKeyPath = path.join(keysDir, "public.key");
 
+        // If keys don't exist, generate them
         if (!fs.existsSync(privateKeyPath) || !fs.existsSync(publicKeyPath)) {
-            throw new Error(
-                "RSA keys not found. Please run: npm run generate-keys"
-            );
+            console.log("RSA keys not found. Auto-generating...");
+            const { privateKey: privKey, publicKey: pubKey } = generateKeys();
+            privateKey = privKey;
+            publicKey = pubKey;
+            return;
         }
 
+        // Load existing keys
         privateKey = fs.readFileSync(privateKeyPath, "utf8");
         publicKey = fs.readFileSync(publicKeyPath, "utf8");
+        console.log("✅ RSA keys loaded successfully");
     } catch (error) {
         console.error("Error loading RSA keys:", error.message);
         process.exit(1);
