@@ -48,8 +48,8 @@ app.use("/api/v1/users", userRoutes);
 const start = async () => {
     await initDb();
     const pool = getPool();
-    const [rows] = await pool.query("SELECT VERSION() AS version");
-    console.log(`MySQL connected version: ${rows[0].version}`);
+    const { rows } = await pool.query("SELECT version() AS version");
+    console.log(`PostgreSQL connected version: ${rows[0].version}`);
 
     server.listen(app.get("port"), () => {
         console.log(`LISTENING ON PORT ${app.get("port")}`);
