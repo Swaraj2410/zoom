@@ -9,6 +9,8 @@ const isProductionDomain = typeof window !== 'undefined' &&
 
 const IS_PROD = process.env.NODE_ENV === 'production' || isProductionDomain;
 
+const DEFAULT_PROD_BACKEND_URL = "https://zoom-video-app-backend.onrender.com";
+
 // Priority: 
 // 1. localStorage override (for testing - set window.BACKEND_URL_OVERRIDE in console)
 // 2. REACT_APP_BACKEND_URL env var (set during build)
@@ -23,7 +25,7 @@ if (typeof window !== 'undefined') {
         BACKEND_URL = override;
     } else {
         BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 
-            (IS_PROD ? "https://zoom-video-app.onrender.com" : "http://localhost:8000");
+            (IS_PROD ? DEFAULT_PROD_BACKEND_URL : "http://localhost:8000");
     }
 } else {
     // Server-side rendering (shouldn't happen, but just in case)
