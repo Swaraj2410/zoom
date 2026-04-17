@@ -1,5 +1,5 @@
 import { Server } from "socket.io"
-
+import { findUserByToken } from "../models/user.model.js";
 
 let connections = {}
 let messages = {}
@@ -8,17 +8,42 @@ let timeOnline = {}
 export const connectToSocket = (server) => {
     const io = new Server(server, {
         cors: {
-            origin: "*",
+            origin: process.env.FRONTEND_URL || "http://localhost:3000",
             methods: ["GET", "POST"],
-            allowedHeaders: ["*"],
+            allowedHeaders: ["Content-Type", "Authorization"],
             credentials: true
         }
     });
 
 
+    io.use(async (socket, next) => {
+        try {
+            const tokenFromAuth = socket.handshake.auth?.token;
+            const authorizationHeader = socket.handshake.headers?.authorization || "";
+            const tokenFromHeader = authorizationHeader.startsWith("Bearer ")
+                ? authorizationHeader.slice(7)
+                : null;
+            const token = tokenFromAuth || tokenFromHeader;
+
+            if (!token) {
+                return next(new Error("Authentication token is required"));
+            }
+
+            const user = await findUserByToken(token);
+            if (!user) {
+                return next(new Error("Invalid authentication token"));
+            }
+
+            socket.user = user;
+            next();
+        } catch (error) {
+            next(new Error("Socket authentication failed"));
+        }
+    });
+
     io.on("connection", (socket) => {
 
-        console.log("SOMETHING CONNECTED")
+        console.log("SOMETHING CONNECTED", socket.user?.username)
 
         socket.on("join-call", (path) => {
 

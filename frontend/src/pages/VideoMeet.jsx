@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import io from "socket.io-client";
-import { Badge, IconButton, TextField, InputAdornment } from '@mui/material';
+import { IconButton, TextField, InputAdornment } from '@mui/material';
 import { Button } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff'
@@ -49,8 +49,6 @@ export default function VideoMeetComponent() {
     let [messages, setMessages] = useState([])
 
     let [message, setMessage] = useState("");
-
-    let [newMessages, setNewMessages] = useState(3);
 
     let [askForUsername, setAskForUsername] = useState(true);
 
@@ -123,6 +121,7 @@ export default function VideoMeetComponent() {
         }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (video !== undefined && audio !== undefined) {
             getUserMedia();
@@ -204,7 +203,7 @@ export default function VideoMeetComponent() {
                 tracks.forEach(track => track.stop())
             } catch (e) { }
         }
-    }
+    };
 
 
 
@@ -278,10 +277,16 @@ export default function VideoMeetComponent() {
     let connectToSocketServer = () => {
         // Detect if using HTTPS and set secure accordingly
         const isSecure = server_url.startsWith('https://');
-        socketRef.current = io.connect(server_url, { 
+        const token = localStorage.getItem("token");
+        socketRef.current = io.connect(server_url, {
             secure: isSecure,
-            transports: ['websocket', 'polling']
+            transports: ['websocket', 'polling'],
+            auth: { token }
         })
+
+        socketRef.current.on('connect_error', (err) => {
+            console.error('Socket connect error:', err.message);
+        });
 
         socketRef.current.on('signal', gotMessageFromServer)
 
@@ -398,6 +403,7 @@ export default function VideoMeetComponent() {
         // getUserMedia();
     }
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (screen !== undefined) {
             getDislayMedia();
@@ -415,16 +421,6 @@ export default function VideoMeetComponent() {
         window.location.href = "/"
     }
 
-    let openChat = () => {
-        setModal(true);
-        setNewMessages(0);
-    }
-    let closeChat = () => {
-        setModal(false);
-    }
-    let handleMessage = (e) => {
-        setMessage(e.target.value);
-    }
 
     const addMessage = (data, sender, socketIdSender) => {
         setMessages((prevMessages) => [
@@ -432,7 +428,7 @@ export default function VideoMeetComponent() {
             { sender: sender, data: data }
         ]);
         if (socketIdSender !== socketIdRef.current) {
-            setNewMessages((prevNewMessages) => prevNewMessages + 1);
+            // unread message count is not currently shown
         }
     };
 
@@ -638,7 +634,7 @@ export default function VideoMeetComponent() {
                             </IconButton> : <></>}
 
                         <IconButton 
-                            onClick={() => { setModal(!showModal); setNewMessages(0); }} 
+                            onClick={() => { setModal(!showModal); }} 
                             sx={{ 
                                 bgcolor: 'rgba(255, 255, 255, 0.2)',
                                 color: 'white',
