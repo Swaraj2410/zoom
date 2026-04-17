@@ -1,5 +1,6 @@
 import { Server } from "socket.io"
-import { findUserByToken } from "../models/user.model.js";
+import { findUserByUsername } from "../models/user.model.js";
+import { verifyToken } from "../utils/jwt.js";
 
 let connections = {}
 let messages = {}
@@ -29,7 +30,8 @@ export const connectToSocket = (server) => {
                 return next(new Error("Authentication token is required"));
             }
 
-            const user = await findUserByToken(token);
+            const decoded = verifyToken(token);
+            const user = await findUserByUsername(decoded.username);
             if (!user) {
                 return next(new Error("Invalid authentication token"));
             }
