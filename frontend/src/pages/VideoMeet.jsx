@@ -277,7 +277,7 @@ export default function VideoMeetComponent() {
     let connectToSocketServer = () => {
         // Detect if using HTTPS and set secure accordingly
         const isSecure = server_url.startsWith('https://');
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("accessToken");
         socketRef.current = io.connect(server_url, {
             secure: isSecure,
             transports: ['websocket', 'polling'],

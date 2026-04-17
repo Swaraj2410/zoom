@@ -1,25 +1,49 @@
 import httpStatus from "http-status";
-import { findUserByToken } from "../models/user.model.js";
+import { verifyToken } from "../utils/jwt.js";
 
 export const authMiddleware = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization || "";
-        const token = authHeader.startsWith("Bearer ")
-            ? authHeader.slice(7)
-            : req.headers["x-access-token"] || req.body.token || req.query.token;
+        
+        // Extract token from Bearer header or x-access-token header
+        let token = null;
+        
+        if (authHeader.startsWith("Bearer ")) {
+            token = authHeader.slice(7);
+        } else if (req.headers["x-access-token"]) {
+            token = req.headers["x-access-token"];
+        } else if (req.body?.token) {
+            token = req.body.token;
+        } else if (req.query?.token) {
+            token = req.query.token;
+        }
 
         if (!token) {
-            return res.status(httpStatus.UNAUTHORIZED).json({ message: "Authentication token is required" });
+            return res.status(httpStatus.UNAUTHORIZED).json({ 
+                message: "Authentication token is required" 
+            });
         }
 
-        const user = await findUserByToken(token);
-        if (!user) {
-            return res.status(httpStatus.UNAUTHORIZED).json({ message: "Invalid or expired authentication token" });
-        }
+        // Verify JWT token with RSA public key
+        const decoded = verifyToken(token);
+        
+        // Attach user info to request from JWT payload
+        req.user = {
+            id: decoded.id,
+            username: decoded.username
+        };
 
-        req.user = user;
         next();
     } catch (error) {
-        return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: "Authentication failed" });
+        // Handle different JWT errors
+        if (error.message.includes("expired")) {
+            return res.status(httpStatus.UNAUTHORIZED).json({ 
+                message: "Token has expired" 
+            });
+        }
+        
+        return res.status(httpStatus.UNAUTHORIZED).json({ 
+            message: "Invalid authentication token" 
+        });
     }
 };

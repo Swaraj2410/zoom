@@ -6,3 +6,11 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Security Keys & Certificates (NEVER COMMIT THESE!)
+/backend/keys/
+/backend/certs/
+/keys/
+/certs/
+private.key
+certificate.crt

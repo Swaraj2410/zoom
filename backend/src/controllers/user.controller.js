@@ -1,12 +1,12 @@
 import httpStatus from "http-status";
 import bcrypt from "bcrypt";
-import crypto from "crypto";
 import {
     findUserByUsername,
     createUser,
     updateUserToken
 } from "../models/user.model.js";
 import { findMeetingsByUserId, createMeeting } from "../models/meeting.model.js";
+import { generateToken, generateRefreshToken } from "../utils/jwt.js";
 
 const login = async (req, res) => {
     const { username, password } = req.body;
@@ -26,12 +26,38 @@ const login = async (req, res) => {
             return res.status(httpStatus.UNAUTHORIZED).json({ message: "Invalid username or password" });
         }
 
-        const token = crypto.randomBytes(32).toString("hex");
-        await updateUserToken(user.id, token);
+        // Generate JWT tokens with RSA-256
+        const accessToken = generateToken(
+            { id: user.id, username: user.username },
+            "1h" // Access token expires in 1 hour
+        );
+        const refreshToken = generateRefreshToken(
+            { id: user.id, username: user.username }
+        );
 
-        return res.status(httpStatus.OK).json({ token });
+        // Store refresh token in database (optional - for token blacklisting)
+        // Don't fail if token storage fails, JWT is still valid
+        try {
+            await updateUserToken(user.id, refreshToken);
+        } catch (dbError) {
+            console.warn("⚠️ Failed to store refresh token in DB (non-critical):", dbError.message);
+        }
+
+        return res.status(httpStatus.OK).json({
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                username: user.username,
+                name: user.name
+            }
+        });
     } catch (e) {
-        return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: "Something went wrong" });
+        console.error("❌ Login error:", e);
+        return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ 
+            message: "Something went wrong",
+            error: process.env.NODE_ENV === 'development' ? e.message : undefined 
+        });
     }
 };
 

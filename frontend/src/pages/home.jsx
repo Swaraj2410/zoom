@@ -47,7 +47,9 @@ function HomeComponent() {
                     <Button 
                         startIcon={<LogoutIcon />}
                         onClick={() => {
-                            localStorage.removeItem("token")
+                            localStorage.removeItem("accessToken")
+                            localStorage.removeItem("refreshToken")
+                            localStorage.removeItem("user")
                             navigate("/auth")
                         }} 
                         sx={{ 

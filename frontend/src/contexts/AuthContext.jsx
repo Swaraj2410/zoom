@@ -12,7 +12,8 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-    const token = localStorage.getItem("token");
+    // Use new accessToken from JWT implementation
+    const token = localStorage.getItem("accessToken");
     if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -57,7 +58,19 @@ export const AuthProvider = ({ children }) => {
             console.log(request.data)
 
             if (request.status === httpStatus.OK) {
-                localStorage.setItem("token", request.data.token);
+                // Handle new JWT response format with accessToken and refreshToken
+                const { accessToken, refreshToken, user } = request.data;
+                
+                // Store tokens
+                localStorage.setItem("accessToken", accessToken);
+                localStorage.setItem("refreshToken", refreshToken);
+                
+                // Store user info
+                if (user) {
+                    localStorage.setItem("user", JSON.stringify(user));
+                    setUserData(user);
+                }
+                
                 router("/home")
             }
         } catch (err) {
