@@ -91,6 +91,14 @@ export default function VideoMeetComponent() {
         }
     }
 
+    const attachLocalVideo = (node) => {
+        localVideoref.current = node;
+
+        if (node && localStreamRef.current) {
+            node.srcObject = localStreamRef.current;
+        }
+    }
+
     const buildLocalStream = (videoTrack) => {
         const stream = new MediaStream();
         if (videoTrack) {
@@ -468,7 +476,7 @@ export default function VideoMeetComponent() {
                     </div>
 
                     <div style={{ background: 'white', padding: '1rem', borderRadius: '20px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
-                        <video ref={localVideoref} autoPlay muted playsInline style={{ width: '400px', height: 'auto', borderRadius: '12px' }}></video>
+                        <video ref={attachLocalVideo} autoPlay muted playsInline style={{ width: '400px', height: 'auto', borderRadius: '12px' }}></video>
                     </div>
 
                 </div> :
@@ -651,7 +659,7 @@ export default function VideoMeetComponent() {
 
                     <div className={screenShareOwner ? styles.screenShareStage : styles.screenShareStageHidden}>
                         {isLocalScreenSharing ?
-                            <video className={styles.screenShareVideo} ref={localVideoref} autoPlay muted playsInline></video> :
+                            <video className={styles.screenShareVideo} ref={attachLocalVideo} autoPlay muted playsInline></video> :
                             remoteScreenVideo ? <video
                                 className={styles.screenShareVideo}
                                 data-socket={remoteScreenVideo.socketId}
@@ -666,7 +674,7 @@ export default function VideoMeetComponent() {
                         }
                     </div>
 
-                    {!isLocalScreenSharing ? <video className={styles.meetUserVideo} ref={localVideoref} autoPlay muted playsInline></video> : <></>}
+                    {!isLocalScreenSharing ? <video className={styles.meetUserVideo} ref={attachLocalVideo} autoPlay muted playsInline></video> : <></>}
 
                     <div className={screenShareOwner ? styles.conferenceStrip : styles.conferenceView}>
                         {videos
