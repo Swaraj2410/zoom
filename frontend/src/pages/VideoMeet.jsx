@@ -33,6 +33,7 @@ export default function VideoMeetComponent() {
     let localVideoref = useRef();
     const videoRef = useRef([]);
     const remoteStreamsRef = useRef({});
+    const pendingIceCandidatesRef = useRef({});
     const localStreamRef = useRef(null);
     const cameraStreamRef = useRef(null);
     const screenStreamRef = useRef(null);
@@ -178,6 +179,19 @@ export default function VideoMeetComponent() {
         return stream;
     }
 
+    const addQueuedIceCandidates = async (fromId) => {
+        const pendingCandidates = pendingIceCandidatesRef.current[fromId] || [];
+
+        if (pendingCandidates.length === 0 || !connections[fromId]?.remoteDescription) {
+            return;
+        }
+
+        pendingIceCandidatesRef.current[fromId] = [];
+        await Promise.all(pendingCandidates.map(candidate =>
+            connections[fromId].addIceCandidate(candidate).catch(e => console.log(e))
+        ));
+    }
+
     let gotMessageFromServer = (fromId, message) => {
         var signal = JSON.parse(message)
 
@@ -186,6 +200,8 @@ export default function VideoMeetComponent() {
 
             if (signal.sdp) {
                 connections[fromId].setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(() => {
+                    addQueuedIceCandidates(fromId);
+
                     if (signal.sdp.type === 'offer') {
                         connections[fromId].createAnswer().then((description) => {
                             connections[fromId].setLocalDescription(description).then(() => {
@@ -197,7 +213,16 @@ export default function VideoMeetComponent() {
             }
 
             if (signal.ice) {
-                connections[fromId].addIceCandidate(new RTCIceCandidate(signal.ice)).catch(e => console.log(e))
+                const candidate = new RTCIceCandidate(signal.ice);
+
+                if (connections[fromId].remoteDescription) {
+                    connections[fromId].addIceCandidate(candidate).catch(e => console.log(e))
+                } else {
+                    pendingIceCandidatesRef.current[fromId] = [
+                        ...(pendingIceCandidatesRef.current[fromId] || []),
+                        candidate
+                    ];
+                }
             }
         }
     }
@@ -214,17 +239,27 @@ export default function VideoMeetComponent() {
             stream.addTrack(track);
         }
 
+        const streamForRender = new MediaStream(stream.getTracks());
+        const hasVideoTrack = streamForRender.getVideoTracks().some(videoTrack => videoTrack.readyState === "live");
+
         setVideos(videos => {
             const videoExists = videos.some(video => video.socketId === socketListId);
             const updatedVideos = videoExists
                 ? videos.map(video =>
-                    video.socketId === socketListId ? { ...video, stream: stream } : video
+                    video.socketId === socketListId
+                        ? {
+                            ...video,
+                            stream: streamForRender,
+                            hasVideo: hasVideoTrack
+                        }
+                        : video
                 )
                 : [
                     ...videos,
                     {
                         socketId: socketListId,
-                        stream: stream,
+                        stream: streamForRender,
+                        hasVideo: hasVideoTrack,
                         autoplay: true,
                         playsinline: true
                     }
@@ -303,6 +338,7 @@ export default function VideoMeetComponent() {
             socketRef.current.on('user-left', (id) => {
                 delete connections[id];
                 delete remoteStreamsRef.current[id];
+                delete pendingIceCandidatesRef.current[id];
                 setParticipantIds(currentIds => currentIds.filter(currentId => currentId !== id));
                 setVideos((videos) => {
                     const updatedVideos = videos.filter((video) => video.socketId !== id);
@@ -685,7 +721,22 @@ export default function VideoMeetComponent() {
 
                     <div className={screenShareOwner ? styles.conferenceStrip : styles.conferenceView}>
                         {videos
+                            .filter(video => !video.hasVideo)
+                            .map((video) => (
+                                <audio
+                                    key={`${video.socketId}-audio`}
+                                    ref={ref => {
+                                        if (ref && video.stream) {
+                                            ref.srcObject = video.stream;
+                                        }
+                                    }}
+                                    autoPlay
+                                ></audio>
+                            ))}
+
+                        {videos
                             .filter(video => video.socketId !== screenShareOwner)
+                            .filter(video => video.hasVideo)
                             .map((video) => (
                                 <div className={styles.videoTile} key={video.socketId}>
                                     <video
