@@ -32,6 +32,7 @@ export default function VideoMeetComponent() {
     let socketIdRef = useRef();
     let localVideoref = useRef();
     const videoRef = useRef([]);
+    const remoteStreamsRef = useRef({});
     const localStreamRef = useRef(null);
     const cameraStreamRef = useRef(null);
     const screenStreamRef = useRef(null);
@@ -201,7 +202,18 @@ export default function VideoMeetComponent() {
         }
     }
 
-    const updateRemoteVideo = (socketListId, stream) => {
+    const updateRemoteVideo = (socketListId, track) => {
+        if (!remoteStreamsRef.current[socketListId]) {
+            remoteStreamsRef.current[socketListId] = new MediaStream();
+        }
+
+        const stream = remoteStreamsRef.current[socketListId];
+        const hasTrack = stream.getTracks().some(existingTrack => existingTrack.id === track.id);
+
+        if (!hasTrack) {
+            stream.addTrack(track);
+        }
+
         setVideos(videos => {
             const videoExists = videos.some(video => video.socketId === socketListId);
             const updatedVideos = videoExists
@@ -252,8 +264,7 @@ export default function VideoMeetComponent() {
         }
 
         connection.ontrack = (event) => {
-            const stream = event.streams[0] || new MediaStream([event.track]);
-            updateRemoteVideo(socketListId, stream);
+            updateRemoteVideo(socketListId, event.track);
         };
 
         addLocalTracks(connection);
@@ -284,13 +295,14 @@ export default function VideoMeetComponent() {
         })
 
         socketRef.current.on('connect', () => {
-            socketRef.current.emit('join-call', window.location.href)
             socketIdRef.current = socketRef.current.id
+            socketRef.current.emit('join-call', window.location.href)
 
             socketRef.current.on('chat-message', addMessage)
 
             socketRef.current.on('user-left', (id) => {
                 delete connections[id];
+                delete remoteStreamsRef.current[id];
                 setParticipantIds(currentIds => currentIds.filter(currentId => currentId !== id));
                 setVideos((videos) => {
                     const updatedVideos = videos.filter((video) => video.socketId !== id);
