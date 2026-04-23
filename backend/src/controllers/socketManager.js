@@ -77,6 +77,31 @@ export const connectToSocket = (server) => {
             io.to(toId).emit("signal", socket.id, message);
         })
 
+        const emitToCurrentRoom = (eventName) => {
+            const [matchingRoom, found] = Object.entries(connections)
+                .reduce(([room, isFound], [roomKey, roomValue]) => {
+                    if (!isFound && roomValue.includes(socket.id)) {
+                        return [roomKey, true];
+                    }
+
+                    return [room, isFound];
+                }, ['', false]);
+
+            if (found === true) {
+                connections[matchingRoom].forEach((elem) => {
+                    io.to(elem).emit(eventName, socket.id)
+                })
+            }
+        }
+
+        socket.on("screen-share-started", () => {
+            emitToCurrentRoom("screen-share-started");
+        })
+
+        socket.on("screen-share-stopped", () => {
+            emitToCurrentRoom("screen-share-stopped");
+        })
+
         socket.on("chat-message", (data, sender) => {
 
             const [matchingRoom, found] = Object.entries(connections)
