@@ -202,30 +202,25 @@ export default function VideoMeetComponent() {
     }
 
     const updateRemoteVideo = (socketListId, stream) => {
-        let videoExists = videoRef.current.find(video => video.socketId === socketListId);
-
-        if (videoExists) {
-            setVideos(videos => {
-                const updatedVideos = videos.map(video =>
+        setVideos(videos => {
+            const videoExists = videos.some(video => video.socketId === socketListId);
+            const updatedVideos = videoExists
+                ? videos.map(video =>
                     video.socketId === socketListId ? { ...video, stream: stream } : video
-                );
-                videoRef.current = updatedVideos;
-                return updatedVideos;
-            });
-        } else {
-            let newVideo = {
-                socketId: socketListId,
-                stream: stream,
-                autoplay: true,
-                playsinline: true
-            };
+                )
+                : [
+                    ...videos,
+                    {
+                        socketId: socketListId,
+                        stream: stream,
+                        autoplay: true,
+                        playsinline: true
+                    }
+                ];
 
-            setVideos(videos => {
-                const updatedVideos = [...videos, newVideo];
-                videoRef.current = updatedVideos;
-                return updatedVideos;
-            });
-        }
+            videoRef.current = updatedVideos;
+            return updatedVideos;
+        });
     }
 
     const addLocalTracks = (connection) => {
